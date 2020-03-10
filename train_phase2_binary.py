@@ -1,11 +1,12 @@
 """
-foacl loss train 输出一个类别概率+ 放开BN
+第一帧训练+mixup
 """
 
 import os
 import random
 import torch
 from torch import nn
+from torch.autograd import Variable
 import torch.backends.cudnn as cudnn
 import numpy as np
 from torch.optim import Adam
@@ -18,9 +19,7 @@ from tqdm import tqdm
 import argparse
 from sklearn import metrics
 import gc
-from network1.models import TransferModel
-
-
+from network.models import TransferModel
 from fvcore.nn import sigmoid_focal_loss
 
 parser = argparse.ArgumentParser()
@@ -59,12 +58,13 @@ if __name__ == "__main__":
         text_writer = open(os.path.join(opt.outf, 'train.csv'), 'w')
 
     model = TransferModel(modelchoice='xception', num_out_classes=1)
-    # network_loss = FocalLoss()
+    # # network_loss =  nn.CrossEntropyLoss()
+    # criterion = nn.CrossEntropyLoss()
 
     if opt.gpu_id >= 0:
         model = nn.DataParallel(model) #设置并行计算
         model.cuda()
-        # network_loss.cuda()
+        # # network_loss.cuda()
     optimizer = Adam(model.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999), eps=opt.eps)
 
     if opt.resume > 0:
@@ -82,11 +82,9 @@ if __name__ == "__main__":
 
     model.train(mode=True)
 
-   
 
     transform_fwd = transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(224),
+        transforms.Resize((224, 224)),
         transforms.ToTensor(),
         transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
         ])
@@ -109,7 +107,7 @@ if __name__ == "__main__":
         loss_train = 0
         loss_test = 0
 
-        tol_label = np.array([], dtype=np.float)
+        tol_label = np.array([], dtype=np.float) #空数组
         tol_pred = np.array([], dtype=np.float)
 
         for img_data, labels_data in tqdm(dataloader_train):
@@ -121,9 +119,8 @@ if __name__ == "__main__":
             if opt.gpu_id >= 0:
                 img_data = img_data.cuda()
                 labels_data = labels_data.cuda().float()
-
-            classes = model(img_data)
-
+            
+            classes = model(img_data) #模型预测
             
             loss_dis = sigmoid_focal_loss(classes,
                                         labels_data.view(-1,1),
@@ -133,29 +130,32 @@ if __name__ == "__main__":
 
 
             loss_dis_data = loss_dis.item()
+
             loss_dis.backward()
             optimizer.step()
 
             classes = classes.view(1,-1).squeeze(0)
             classes = torch.sigmoid(classes)
-            output_dis = classes.data.cpu().numpy()
+            output_dis = classes.data.cpu().numpy() #输出结果
+            
 
             tol_label = np.concatenate((tol_label, img_label))
             tol_pred = np.concatenate((tol_pred, output_dis))
-
+            
             loss_train += loss_dis_data
             count += 1
 
-        logloss_train = metrics.log_loss(tol_label, tol_pred)
+        
+        logloss_train = metrics.log_loss(tol_label, tol_pred) #计算准确度
         loss_train /= count
 
         ########################################################################
 
-        # do checkpointing & validation
+        # do checkpointing & validation 保存参数
         torch.save(model.state_dict(), os.path.join(opt.outf, 'model_%d.pt' % epoch))
         torch.save(optimizer.state_dict(), os.path.join(opt.outf, 'optim_%d.pt' % epoch))
 
-        model.eval()
+        model.eval() #把BN和dropout固定住，不会平均，用训练好的值，变成测试模式
 
         tol_label = np.array([], dtype=np.float)
         tol_pred = np.array([], dtype=np.float)
@@ -179,11 +179,12 @@ if __name__ == "__main__":
                                         gamma=2,
                                         reduction="mean")
 
-
             loss_dis_data = loss_dis.item()
+
             classes = classes.view(1,-1).squeeze(0)
             classes = torch.sigmoid(classes)
             output_dis = classes.data.cpu().numpy()
+
 
             tol_label = np.concatenate((tol_label, img_label))
             tol_pred = np.concatenate((tol_pred, output_dis))
@@ -193,6 +194,7 @@ if __name__ == "__main__":
 
         logloss_test = metrics.log_loss(tol_label, tol_pred)
         loss_test /= count
+
 
         print('[Epoch %d] Train loss: %.4f   logloss: %.4f | Test loss: %.4f  logloss: %.4f'
         % (epoch, loss_train, logloss_train, loss_test, logloss_test))

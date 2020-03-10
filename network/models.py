@@ -9,7 +9,7 @@ import argparse
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from network1.xception import xception
+from network.xception import xception
 import math
 import torchvision
 
@@ -21,7 +21,7 @@ def return_pytorch04_xception(pretrained=True):
         # Load model in torch 0.4+
         model.fc = model.last_linear
         del model.last_linear
-        state_dict = torch.load(os.path.join('network1', 'xception-b5690688.pth'))
+        state_dict = torch.load(os.path.join('network', 'xception-b5690688.pth'))
         for name, weights in state_dict.items():
             if 'pointwise' in name:
                 state_dict[name] = weights.unsqueeze(-1).unsqueeze(-1)
@@ -36,7 +36,7 @@ class TransferModel(nn.Module):
     Simple transfer learning model that takes an imagenet pretrained model with
     a fc layer as base model and retrains a new fc layer for num_out_classes
     """
-    def __init__(self, modelchoice, num_out_classes=1, dropout=0.0):
+    def __init__(self, modelchoice, num_out_classes=2, dropout=0.0):
         super(TransferModel, self).__init__()
         self.modelchoice = modelchoice
         if modelchoice == 'xception':
@@ -70,36 +70,12 @@ class TransferModel(nn.Module):
             raise Exception('Choose valid model, e.g. resnet50')
 
     def set_trainable_up_to(self, boolean):
-        """
-        Freezes all layers below a specific layer and sets the following layers
-        to true if boolean else only the fully connected final layer
-        :param boolean:
-        :param layername: depends on network, for inception e.g. Conv2d_4a_3x3
-        :return:
-        """
-        # Stage-1: freeze all the layers
-        # if layername is None:
-        #     for i, param in self.model.named_parameters():
-        #         param.requires_grad = True
-        #         return
-        # else:
-        #     for i, param in self.model.named_parameters():
-        #         param.requires_grad = False
+        
         if boolean:
             # Make all layers following the layername layer trainable
             for i, param in self.model.named_parameters():
                 param.requires_grad = True
-            # ct = []
-            # found = False
-            # for name, child in self.model.named_children():
-            #     if layername in ct:
-            #         found = True
-            #         for params in child.parameters():
-            #             params.requires_grad = True
-            #     ct.append(name)
-            # if not found:
-            #     raise Exception('Layer not found, cant finetune!'.format(
-            #         layername))
+
         else:
             if self.modelchoice == 'xception':
                 for i, param in self.model.named_parameters():
@@ -118,7 +94,6 @@ class TransferModel(nn.Module):
     def forward(self, x):
         x = self.model(x)
         return x
-
 
 def model_selection(modelname, num_out_classes,
                     dropout=None):
