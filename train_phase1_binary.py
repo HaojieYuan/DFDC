@@ -1,5 +1,5 @@
 """
-数据增强，高斯模糊，压缩，水平变换
+focal loss train 输出一个类别概率 + 冻结BN以上
 """
 
 import os
@@ -9,7 +9,6 @@ from torch import nn
 import torch.backends.cudnn as cudnn
 import numpy as np
 from torch.optim import Adam
-from torch.autograd import Variable
 import torch.utils.data
 import torchvision.datasets as dset
 from dataset.Dfirstdataset import faceforensicsDataset
@@ -20,10 +19,9 @@ import argparse
 from sklearn import metrics #评估方法
 import gc
 from network.models import TransferModel
+
 from fvcore.nn import sigmoid_focal_loss
-
-
-from albumentations import GaussianBlur, JpegCompression, GaussNoise, HorizontalFlip
+from torch.nn import functional as F
 
 
 
@@ -64,12 +62,11 @@ if __name__ == "__main__":
 
     model = TransferModel(modelchoice='xception', num_out_classes=1)
     model.set_trainable_up_to(False) #设置fc为线性
-    # # network_loss =  nn.CrossEntropyLoss()
-    # criterion = nn.CrossEntropyLoss()
+    # network_loss = FocalLoss()
     if opt.gpu_id >= 0:
         model = nn.DataParallel(model) #设置并行计算
         model.cuda()
-        # # network_loss.cuda()
+        # network_loss.cuda()
     optimizer = Adam(model.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999), eps=opt.eps)
 
     if opt.resume > 0:
@@ -84,12 +81,16 @@ if __name__ == "__main__":
 
     model.train(mode=True) #训练模型时使用
 
+    # if opt.gpu_id >= 0:
+    #     model = nn.DataParallel(model) #设置并行计算
+    #     model.cuda()
+    #     network_loss.cuda()
 
 #对图片进行变换
     transform_fwd = transforms.Compose([
-        transforms.Resize((224, 224)),
+        transforms.Resize((224,224)),
         transforms.ToTensor(),
-        transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
         ])
 
 
@@ -122,9 +123,19 @@ if __name__ == "__main__":
             if opt.gpu_id >= 0:
                 img_data = img_data.cuda()
                 labels_data = labels_data.cuda().float()
-            
+                # labels_data.requires_grad_()
+
+
+            #img_data = FaceExtraction.extract_face(img_data) #提取人脸
             classes = model(img_data) #模型预测
+            # print(classes)
+            # print(classes.shape)
             
+            # print(labels_data.view(-1,1))
+            # print(labels_data.type())
+            # print(classes.data)
+
+
             loss_dis = sigmoid_focal_loss(classes,
                                         labels_data.view(-1,1),
                                         alpha=0.25,

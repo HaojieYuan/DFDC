@@ -69,24 +69,42 @@ class TransferModel(nn.Module):
         else:
             raise Exception('Choose valid model, e.g. resnet50')
 
-    def set_trainable_up_to(self, boolean):
-        
-        if boolean:
-            # Make all layers following the layername layer trainable
+    def set_trainable_up_to(self, boolean, layername="bn2"):
+        """
+        Freezes all layers below a specific layer and sets the following layers
+        to true if boolean else only the fully connected final layer
+        :param boolean:
+        :param layername: depends on network, for inception e.g. Conv2d_4a_3x3
+        :return:
+        """
+        # Stage-1: freeze all the layers
+        if layername is None:
             for i, param in self.model.named_parameters():
                 param.requires_grad = True
-
+                return
+        else:
+            for i, param in self.model.named_parameters():
+                param.requires_grad = False
+        if boolean:
+            # Make all layers following the layername layer trainable
+            ct = []
+            found = False
+            for name, child in self.model.named_children():
+                if layername in ct:
+                    found = True
+                    for params in child.parameters():
+                        params.requires_grad = True
+                ct.append(name)
+            if not found:
+                raise Exception('Layer not found, cant finetune!'.format(
+                    layername))
         else:
             if self.modelchoice == 'xception':
-                for i, param in self.model.named_parameters():
-                    param.requires_grad = False
                 # Make fc trainable
                 for param in self.model.last_linear.parameters():
                     param.requires_grad = True
 
             else:
-                for i, param in self.model.named_parameters():
-                    param.requires_grad = False
                 # Make fc trainable
                 for param in self.model.fc.parameters():
                     param.requires_grad = True
@@ -94,6 +112,7 @@ class TransferModel(nn.Module):
     def forward(self, x):
         x = self.model(x)
         return x
+
 
 def model_selection(modelname, num_out_classes,
                     dropout=None):
