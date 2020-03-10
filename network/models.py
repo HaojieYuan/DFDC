@@ -9,7 +9,7 @@ import argparse
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from network1.xception import xception
+from network.xception import xception
 import math
 import torchvision
 
@@ -21,7 +21,7 @@ def return_pytorch04_xception(pretrained=True):
         # Load model in torch 0.4+
         model.fc = model.last_linear
         del model.last_linear
-        state_dict = torch.load(os.path.join('network1', 'xception-b5690688.pth'))
+        state_dict = torch.load(os.path.join('network', 'xception-b5690688.pth'))
         for name, weights in state_dict.items():
             if 'pointwise' in name:
                 state_dict[name] = weights.unsqueeze(-1).unsqueeze(-1)

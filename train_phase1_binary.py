@@ -11,7 +11,7 @@ import numpy as np
 from torch.optim import Adam
 import torch.utils.data
 import torchvision.datasets as dset
-from dataset.Dfirstdataset import faceforensicsDataset
+from dataset.Dfirstdataset import faceforensicsDataset, faceforensicsDatasetBalanced, balancing_collate_fn
 import torchvision.transforms as transforms
 import torchvision.models as models
 from tqdm import tqdm
@@ -22,7 +22,6 @@ from network.models import TransferModel
 
 from fvcore.nn import sigmoid_focal_loss
 from torch.nn import functional as F
-
 
 
 parser = argparse.ArgumentParser()
@@ -96,10 +95,10 @@ if __name__ == "__main__":
 
 
     #dataset_train = dset.ImageFolder(root=os.path.join(opt.dataset, opt.train_set), transform=transform_fwd)
-    dataset_train = faceforensicsDataset(rootpath=opt.dataset, datapath=os.path.join(opt.dataset, opt.train_set), transform=transform_fwd)
+    dataset_train = faceforensicsDatasetBalanced(rootpath=opt.dataset, datapath=os.path.join(opt.dataset, opt.train_set), transform=transform_fwd)
     # print(list(dataset_train)[0:1])
     assert dataset_train
-    dataloader_train = torch.utils.data.DataLoader(dataset_train, batch_size=opt.batchSize, shuffle=True, num_workers=int(opt.workers))
+    dataloader_train = torch.utils.data.DataLoader(dataset_train, batch_size=int(opt.batchSize/2), shuffle=True, num_workers=int(opt.workers), collate_fn=balancing_collate_fn)
 
     #dataset_val = dset.ImageFolder(root=os.path.join(opt.dataset, opt.val_set), transform=transform_fwd)
     dataset_val = faceforensicsDataset(rootpath=opt.dataset, datapath=os.path.join(opt.dataset, opt.val_set), transform=transform_fwd)
