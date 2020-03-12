@@ -59,12 +59,11 @@ class faceforensicsDatasetBalanced(Dataset):
         for line in imgsfolderPath:
             line = line.strip()
             words = line.split()
-            filelist_fake = glob.glob(os.path.join(rootpath, words[0], '*_0.png'))
-            filelist_real = glob.glob(os.path.join(rootpath, words[2], '*_0.png'))
+            imagepath_fake = os.path.join(rootpath, words[0])
+            imagepath_real = os.path.join(rootpath, words[1])
             #print(len(filelist))
-            for imagepath_fake, imagepath_real in zip(filelist_fake, filelist_real):
-                imgs_fake.append((imagepath_fake, 1))
-                imgs_real.append((imagepath_real, 0))
+            imgs_fake.append((imagepath_fake, 1))
+            imgs_real.append((imagepath_real, 0))
 
 
         self.imgs_fake = imgs_fake

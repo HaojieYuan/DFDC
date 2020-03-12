@@ -25,7 +25,8 @@ from torch.nn import functional as F
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataset', default ='databasess/FFPP', help='path to root dataset')
+parser.add_argument('--dataset_train', default ='databasess/FFPP', help='path to root dataset')
+parser.add_argument('--dataset_test', default ='databasess/FFPP', help='path to root dataset')
 parser.add_argument('--train_set', default ='train', help='train set')
 parser.add_argument('--val_set', default ='val', help='validation set')
 parser.add_argument('--workers', type=int, help='number of data loading workers', default=0)
@@ -95,13 +96,13 @@ if __name__ == "__main__":
 
 
     #dataset_train = dset.ImageFolder(root=os.path.join(opt.dataset, opt.train_set), transform=transform_fwd)
-    dataset_train = faceforensicsDatasetBalanced(rootpath=opt.dataset, datapath=os.path.join(opt.dataset, opt.train_set), transform=transform_fwd)
+    dataset_train = faceforensicsDatasetBalanced(rootpath=opt.dataset_train, datapath=opt.train_set, transform=transform_fwd)
     # print(list(dataset_train)[0:1])
     assert dataset_train
     dataloader_train = torch.utils.data.DataLoader(dataset_train, batch_size=int(opt.batchSize/2), shuffle=True, num_workers=int(opt.workers), collate_fn=balancing_collate_fn)
 
     #dataset_val = dset.ImageFolder(root=os.path.join(opt.dataset, opt.val_set), transform=transform_fwd)
-    dataset_val = faceforensicsDataset(rootpath=opt.dataset, datapath=os.path.join(opt.dataset, opt.val_set), transform=transform_fwd)
+    dataset_val = faceforensicsDataset(rootpath=opt.dataset_test, datapath=opt.val_set, transform=transform_fwd)
     assert dataset_val
     dataloader_val = torch.utils.data.DataLoader(dataset_val, batch_size=opt.batchSize, shuffle=False, num_workers=int(opt.workers))
 
